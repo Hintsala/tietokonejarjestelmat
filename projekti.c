@@ -41,12 +41,12 @@ static void nappi(uint gpio, uint32_t eventMask) {
     }
     programState = BUTTON_PRESSED;
 }
-
-static void read_accel(accel_t *data) {
+\tunnistaa asennon\
+static void asento(accel_t *data) {
     float gx, gy, gz, t;
     ICM42670_read_sensor_data(&data->ax, &data->ay, &data->az, &gx, &gy, &gz, &t);
 }
-
+\tunistaa symbolin\
 static char tunnista_symboli(const accel_t *data) {
     if (fabsf(data->az) > THRESHOLD_G) {
         return '.';
@@ -66,7 +66,7 @@ static void sensori(void *arg) {
     while (1) {
         if (programState == BUTTON_PRESSED) {
             if (buttonFlags & SW1_FLAG) {
-                read_accel(&accel);
+                asento(&accel);
                 symbol = tunnista_symboli(&accel);
             } else if (buttonFlags & SW2_FLAG) {
                 symbol = ' ';
@@ -83,8 +83,8 @@ static void sensori(void *arg) {
         vTaskDelay(pdMS_TO_TICKS(SENSOR_DELAY_MS));
     }
 }
-
-static void print_task(void *arg) {
+\tulostaa morsen näkyville\
+static void tulostus(void *arg) {
     while (1) {
         if (programState == SEND_SYMBOL) {
             printf("%c", symbol);
@@ -110,7 +110,7 @@ int main(void) {
     gpio_set_irq_enabled(BUTTON2, GPIO_IRQ_EDGE_RISE, true);
 
     xTaskCreate(sensori, "sensor", DEFAULT_STACK_SIZE, NULL, 2, NULL);
-    xTaskCreate(print_task, "print", DEFAULT_STACK_SIZE, NULL, 2, NULL);
+    xTaskCreate(tulostus, "print", DEFAULT_STACK_SIZE, NULL, 2, NULL);
 
     vTaskStartScheduler();
 
