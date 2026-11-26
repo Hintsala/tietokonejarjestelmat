@@ -30,7 +30,7 @@ volatile state_t programState = WAITING;
 volatile uint8_t buttonFlags = 0;
 volatile char symbol = 0;
 
-static void btn_fxn(uint gpio, uint32_t eventMask) {
+static void nappi(uint gpio, uint32_t eventMask) {
     if (programState != WAITING) {
         return;
     }
@@ -57,7 +57,7 @@ static char detect_symbol(const accel_t *data) {
     return 0;
 }
 
-static void sensor_task(void *arg) {
+static void sensori(void *arg) {
     accel_t accel;
 
     init_ICM42670();
@@ -106,10 +106,10 @@ int main(void) {
     init_sw1();
     init_sw2();
 
-    gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, btn_fxn);
+    gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, nappi);
     gpio_set_irq_enabled(BUTTON2, GPIO_IRQ_EDGE_RISE, true);
 
-    xTaskCreate(sensor_task, "sensor", DEFAULT_STACK_SIZE, NULL, 2, NULL);
+    xTaskCreate(sensori, "sensor", DEFAULT_STACK_SIZE, NULL, 2, NULL);
     xTaskCreate(print_task, "print", DEFAULT_STACK_SIZE, NULL, 2, NULL);
 
     vTaskStartScheduler();
