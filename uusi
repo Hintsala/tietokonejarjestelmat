@@ -1,3 +1,11 @@
+/*
+ * Morsekoodin lähetin (TKJHAT + FreeRTOS)
+ * Tekijät: [Omat nimet tähän]
+ * 
+ * SW1 lukee kiihtyvyysanturin asennon ja tulostaa '.' tai '-'
+ * SW2 tulostaa välilyönnin merkkien väliin
+ */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>
@@ -6,126 +14,109 @@
 #include <task.h>
 #include "tkjhat/sdk.h"
 
-#define DEFAULT_STACK_SIZE 2048
-#define SENSOR_DELAY_MS    50
-#define PRINT_DELAY_MS     50
-#define THRESHOLD_G        0.8f
+#define PINO_KOKO       2048
+#define SENSORI_VIIVE   50
+#define TULOSTUS_VIIVE  50
+#define RAJA_ARVO       0.8f
+#define DEBOUNCE_MS     200
 
-#define SW1_FLAG (1 << 0)
-#define SW2_FLAG (1 << 1)
-
+// Ohjelman tilakoneen tilat
 typedef enum {
-    WAITING,
-    BUTTON_PRESSED,
-    SEND_SYMBOL
-} state_t;
+    ODOTTAA = 1,
+    NAPPI1_PAINETTU,
+    NAPPI2_PAINETTU,
+    TULOSTA_MERKKI
+} tila_t;
 
-typedef enum {
-    ASENTO_EI = 0,
-    ASENTO_YLOS,
-    ASENTO_ALAS,
-    ASENTO_SIVULLA
-} asento_t;
-
+// Kiihtyvyysanturin lukemat
 typedef struct {
-    float ax;
-    float ay;
-    float az;
-} accel_t;
+    float x;
+    float y;
+    float z;
+} kiihtyvyys_t;
 
-volatile state_t programState = WAITING;
-volatile uint8_t buttonFlags = 0;
-volatile char symbol = 0;
-volatile asento_t asento_tila = ASENTO_EI;
+volatile tila_t ohjelman_tila = ODOTTAA;
+volatile char lahetettava_merkki = 0;
 
-// Käsittelee nappien painallukset
-static void nappi(uint gpio, uint32_t eventMask) {
-    if (programState != WAITING) {
+// Keskeytyskäsittelijä molemmille napeille
+void nappi_keskeytys(uint gpio, uint32_t eventMask) {
+    static uint32_t edellinen_painallus = 0;
+    uint32_t nyt = to_ms_since_boot(get_absolute_time());
+
+    // Estetään kytkinvärähtelystä johtuvat tuplapainallukset
+    if (nyt - edellinen_painallus < DEBOUNCE_MS) {
         return;
     }
-    if (gpio == BUTTON1) {
-        buttonFlags |= SW1_FLAG;
-    } else if (gpio == BUTTON2) {
-        buttonFlags |= SW2_FLAG;
+
+    // Reagoidaan vain jos edellinen merkki on jo käsitelty
+    if (ohjelman_tila != ODOTTAA) {
+        return;
     }
-    programState = BUTTON_PRESSED;
+
+    edellinen_painallus = nyt;
+
+    if (gpio == BUTTON1) {
+        ohjelman_tila = NAPPI1_PAINETTU;
+    } else if (gpio == BUTTON2) {
+        ohjelman_tila = NAPPI2_PAINETTU;
+    }
 }
 
-// Lukee kiihtyvyysanturin asennon
-static void asento(accel_t *data) {
-    float gx, gy, gz, t;
-    ICM42670_read_sensor_data(&data->ax, &data->ay, &data->az, &gx, &gy, &gz, &t);
-}
-
-// Tunnistaa symbolin ja asennon (ylös, alas, sivulla)
-static char tunnista_symboli(const accel_t *data, volatile asento_t *tila) {
-    if (data->az > THRESHOLD_G) {
-        *tila = ASENTO_YLOS;
+// Päättelee morsemerkin levyn kallistuksen perusteella
+char paattele_merkki(kiihtyvyys_t data) {
+    // Levy vaakatasossa (Z-akseli pystyssä) -> piste
+    if (fabsf(data.z) > RAJA_ARVO) {
         return '.';
     }
-    if (data->az < -THRESHOLD_G) {
-        *tila = ASENTO_ALAS;
+    // Levy kallistettuna sivulle tai pystyyn (X tai Y) -> viiva
+    if (fabsf(data.x) > RAJA_ARVO || fabsf(data.y) > RAJA_ARVO) {
         return '-';
     }
-    if (fabsf(data->ax) > THRESHOLD_G || fabsf(data->ay) > THRESHOLD_G) {
-        *tila = ASENTO_SIVULLA;
-        return '-';
-    }
-    *tila = ASENTO_EI;
     return 0;
 }
 
-// Käsittelee sensorin tapahtumat
-static void sensori(void *arg) {
-    accel_t accel;
+// Taski kiihtyvyysanturin lukemiseen
+void sensori_task(void *pvParameters) {
+    kiihtyvyys_t mittaus;
+    float gx, gy, gz, temp; // Ylimääräiset muuttujat SDK:n funktiota varten
 
     init_ICM42670();
     ICM42670_start_with_default_values();
 
     while (1) {
-        if (programState == BUTTON_PRESSED) {
-            if (buttonFlags & SW1_FLAG) {
-                asento(&accel);
-                symbol = tunnista_symboli(&accel, &asento_tila);
-            } else if (buttonFlags & SW2_FLAG) {
-                symbol = ' ';
-                asento_tila = ASENTO_EI;
-            }
+        if (ohjelman_tila == NAPPI1_PAINETTU) {
+            ICM42670_read_sensor_data(&mittaus.x, &mittaus.y, &mittaus.z, &gx, &gy, &gz, &temp);
+            lahetettava_merkki = paattele_merkki(mittaus);
 
-            buttonFlags = 0;
-
-            if (symbol != 0) {
-                programState = SEND_SYMBOL;
+            if (lahetettava_merkki != 0) {
+                ohjelman_tila = TULOSTA_MERKKI;
             } else {
-                programState = WAITING;
+                // Jos asento oli epäselvä, palataan odottamaan
+                ohjelman_tila = ODOTTAA;
             }
+        } 
+        else if (ohjelman_tila == NAPPI2_PAINETTU) {
+            lahetettava_merkki = ' ';
+            ohjelman_tila = TULOSTA_MERKKI;
         }
-        vTaskDelay(pdMS_TO_TICKS(SENSOR_DELAY_MS));
+
+        vTaskDelay(pdMS_TO_TICKS(SENSORI_VIIVE));
     }
 }
 
-// Tulostaa morsen sekä asennon näkyville ja käsittelee ledit
-static void tulostus(void *arg) {
+// Taski merkkien tulostamiseen ja ledin vilkuttamiseen
+void tulostus_task(void *pvParameters) {
     while (1) {
-        if (programState == SEND_SYMBOL) {
-            const char *teksti = "";
-            if (asento_tila == ASENTO_YLOS) {
-                teksti = "(ylös)";
-            } else if (asento_tila == ASENTO_ALAS) {
-                teksti = "(alas)";
-            } else if (asento_tila == ASENTO_SIVULLA) {
-                teksti = "(sivulla)";
-            }
-
-            printf("%c%s", symbol, teksti);
-            fflush(stdout);
+        if (ohjelman_tila == TULOSTA_MERKKI) {
+            printf("%c", lahetettava_merkki);
+            fflush(stdout); // Pakotetaan tulostus heti ilman rivinvaihtoa
             toggle_led();
 
-            symbol = 0;
-            asento_tila = ASENTO_EI;
-            programState = WAITING;
+            lahetettava_merkki = 0;
+            ohjelman_tila = ODOTTAA;
         }
-        vTaskDelay(pdMS_TO_TICKS(PRINT_DELAY_MS));
+
+        vTaskDelay(pdMS_TO_TICKS(TULOSTUS_VIIVE));
     }
 }
 
@@ -138,11 +129,12 @@ int main(void) {
     init_sw1();
     init_sw2();
 
-    gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, nappi);
+    // Otetaan keskeytykset käyttöön napeille
+    gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, &nappi_keskeytys);
     gpio_set_irq_enabled(BUTTON2, GPIO_IRQ_EDGE_RISE, true);
 
-    xTaskCreate(sensori, "sensor", DEFAULT_STACK_SIZE, NULL, 2, NULL);
-    xTaskCreate(tulostus, "print", DEFAULT_STACK_SIZE, NULL, 2, NULL);
+    xTaskCreate(sensori_task, "Sensori", PINO_KOKO, NULL, 2, NULL);
+    xTaskCreate(tulostus_task, "Tulostus", PINO_KOKO, NULL, 2, NULL);
 
     vTaskStartScheduler();
 
