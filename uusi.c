@@ -15,7 +15,6 @@
 #define RAJA_ARVO       0.8f
 #define HÄIRIÖ_VIIVE     200
 
-// Tilakonen eri tilat
 typedef enum {
     ODOTTAA = 1,
     NAPPI1_PAINETTU,
@@ -23,33 +22,24 @@ typedef enum {
     TULOSTA_MERKKI
 } tila_t;
 
-// Kiihtyvyysanturin lukemat
 typedef struct {
     float x;
     float y;
     float z;
 } kiihtyvyys_t;
-
 volatile tila_t ohjelman_tila = ODOTTAA;
 volatile char lahetettava_merkki = 0;
-
-// Keskeytyskäsittelijä molemmille napeille
+// Keskeytyskäsittelijä napeille
 void napin_kasittelija(uint gpio, uint32_t eventMask) {
     static uint32_t edellinen_painallus = 0;
     uint32_t nyt = to_ms_since_boot(get_absolute_time());
-
-    // Estetään tuplapainallukset
     if (nyt - edellinen_painallus < HÄIRIÖ_VIIVE) {
         return;
     }
-
-    // Odotetaan kunnes edellinen merkki on käsitelty
     if (ohjelman_tila != ODOTTAA) {
         return;
     }
-
     edellinen_painallus = nyt;
-
     if (gpio == BUTTON1) {
         ohjelman_tila = NAPPI1_PAINETTU;
     } else if (gpio == BUTTON2) {
@@ -57,32 +47,27 @@ void napin_kasittelija(uint gpio, uint32_t eventMask) {
     }
 }
 
-// Päättelee merkin laiteen asennosta
 char paattele_merkki(kiihtyvyys_t data) {
-    // vaakasuorassa on .
+    // vaakasuorassa
     if (fabsf(data.z) > RAJA_ARVO) {
         return '.';
     }
-    // sivulla tai pystyssä on -
+    // sivulla tai pystyssä
     if (fabsf(data.x) > RAJA_ARVO || fabsf(data.y) > RAJA_ARVO) {
         return '-';
     }
     return 0;
 }
 
-// lukee anturia
 void sensori_task(void *pvParameters) {
     kiihtyvyys_t mittaus;
     float gx, gy, gz, temp; 
-
     init_ICM42670();
     ICM42670_start_with_default_values();
-
     while (1) {
         if (ohjelman_tila == NAPPI1_PAINETTU) {
             ICM42670_read_sensor_data(&mittaus.x, &mittaus.y, &mittaus.z, &gx, &gy, &gz, &temp);
             lahetettava_merkki = paattele_merkki(mittaus);
-
             if (lahetettava_merkki != 0) {
                 ohjelman_tila = TULOSTA_MERKKI;
             } else {
@@ -93,11 +78,9 @@ void sensori_task(void *pvParameters) {
             lahetettava_merkki = ' ';
             ohjelman_tila = TULOSTA_MERKKI;
         }
-
         vTaskDelay(pdMS_TO_TICKS(SENSORI_VIIVE));
     }
 }
-
 // Tulostaa ja käyttää lediä
 void tulostus_task(void *pvParameters) {
     while (1) {
@@ -105,32 +88,23 @@ void tulostus_task(void *pvParameters) {
             printf("%c", lahetettava_merkki);
             fflush(stdout);
             toggle_led();
-
             lahetettava_merkki = 0;
             ohjelman_tila = ODOTTAA;
         }
-
         vTaskDelay(pdMS_TO_TICKS(TULOSTUS_VIIVE));
     }
 }
-
 int main(void) {
     stdio_init_all();
     init_hat_sdk();
     sleep_ms(300);
-
-    //alustetaan ledit
     init_led();
     init_sw1();
     init_sw2();
-
-    //valmiit käsittelijät napeille
     gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, &napin_kasittelija);
     gpio_set_irq_enabled(BUTTON2, GPIO_IRQ_EDGE_RISE, true);
-
     xTaskCreate(sensori_task, "Sensori", muisti, NULL, 2, NULL);
     xTaskCreate(tulostus_task, "Tulostus", muisti, NULL, 2, NULL);
-
     vTaskStartScheduler();
 
     return 0;
