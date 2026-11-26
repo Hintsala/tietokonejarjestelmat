@@ -15,7 +15,7 @@
 #define RAJA_ARVO       0.8f
 #define HÄIRIÖ_VIIVE     200
 
-// Ohjelman tilakoneen tilat
+// Tilakonen eri tilat
 typedef enum {
     ODOTTAA = 1,
     NAPPI1_PAINETTU,
@@ -34,11 +34,11 @@ volatile tila_t ohjelman_tila = ODOTTAA;
 volatile char lahetettava_merkki = 0;
 
 // Keskeytyskäsittelijä molemmille napeille
-void nappi_keskeytys(uint gpio, uint32_t eventMask) {
+void napin_kasittelija(uint gpio, uint32_t eventMask) {
     static uint32_t edellinen_painallus = 0;
     uint32_t nyt = to_ms_since_boot(get_absolute_time());
 
-    // Estetään kytkinvärähtelystä johtuvat tuplapainallukset
+    // Estetään tuplapainallukset
     if (nyt - edellinen_painallus < HÄIRIÖ_VIIVE) {
         return;
     }
@@ -125,7 +125,7 @@ int main(void) {
     init_sw2();
 
     // Otetaan keskeytykset käyttöön napeille
-    gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, &nappi_keskeytys);
+    gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, &napin_kasittelija);
     gpio_set_irq_enabled(BUTTON2, GPIO_IRQ_EDGE_RISE, true);
 
     xTaskCreate(sensori_task, "Sensori", muisti, NULL, 2, NULL);
