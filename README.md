@@ -1,0 +1,2 @@
+# tietokonejarjestelmat
+tietokonejärjestelmät kurssi repo
