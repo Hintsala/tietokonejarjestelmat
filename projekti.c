@@ -47,7 +47,7 @@ static void read_accel(accel_t *data) {
     ICM42670_read_sensor_data(&data->ax, &data->ay, &data->az, &gx, &gy, &gz, &t);
 }
 
-static char detect_symbol(const accel_t *data) {
+static char tunnista_symboli(const accel_t *data) {
     if (fabsf(data->az) > THRESHOLD_G) {
         return '.';
     }
@@ -56,7 +56,7 @@ static char detect_symbol(const accel_t *data) {
     }
     return 0;
 }
-
+\käsittelee sensorin tapahtumat\
 static void sensori(void *arg) {
     accel_t accel;
 
@@ -67,7 +67,7 @@ static void sensori(void *arg) {
         if (programState == BUTTON_PRESSED) {
             if (buttonFlags & SW1_FLAG) {
                 read_accel(&accel);
-                symbol = detect_symbol(&accel);
+                symbol = tunnista_symboli(&accel);
             } else if (buttonFlags & SW2_FLAG) {
                 symbol = ' ';
             }
