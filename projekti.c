@@ -31,8 +31,8 @@ volatile state_t programState = WAITING;
 volatile uint8_t buttonFlags = 0;
 volatile char symbol = 0;
 
-//käsitelee nappien painallukset
-static void nappi(uint gpio, uint32_t eventMask) {
+//käsitelee buttonen painallukset
+static void button(uint gpio, uint32_t eventMask) {
     if (programState != WAITING) {
         return;
     }
@@ -44,12 +44,12 @@ static void nappi(uint gpio, uint32_t eventMask) {
     programState = BUTTON_PRESSED;
 }
 //tunnistaa asennon
-static void asento(accel_t *data) {
+static void position(accel_t *data) {
     float gx, gy, gz, t;
     ICM42670_read_sensor_data(&data->ax, &data->ay, &data->az, &gx, &gy, &gz, &t);
 }
 //tunnistaa symbolin
-static char tunnista_symboli(const accel_t *data) {
+static char detect_symbol(const accel_t *data) {
     if (fabsf(data->az) > THRESHOLD_G) {
         return '.';
     }
@@ -68,8 +68,8 @@ static void sensori(void *arg) {
     while (1) {
         if (programState == BUTTON_PRESSED) {
             if (buttonFlags & SW1_FLAG) {
-                asento(&accel);
-                symbol = tunnista_symboli(&accel);
+                position(&accel);
+                symbol = detect_symbol(&accel);
             } else if (buttonFlags & SW2_FLAG) {
                 symbol = ' ';
             }
@@ -108,7 +108,7 @@ int main(void) {
     init_sw1();
     init_sw2();
 
-    gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, nappi);
+    gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, button);
     gpio_set_irq_enabled(BUTTON2, GPIO_IRQ_EDGE_RISE, true);
 
     xTaskCreate(sensori, "sensor", DEFAULT_STACK_SIZE, NULL, 2, NULL);
