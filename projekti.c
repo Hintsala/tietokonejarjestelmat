@@ -30,6 +30,7 @@ volatile state_t programState = WAITING;
 volatile uint8_t buttonFlags = 0;
 volatile char symbol = 0;
 
+\käsitelee nappien painallukset\
 static void nappi(uint gpio, uint32_t eventMask) {
     if (programState != WAITING) {
         return;
@@ -83,7 +84,7 @@ static void sensori(void *arg) {
         vTaskDelay(pdMS_TO_TICKS(SENSOR_DELAY_MS));
     }
 }
-\tulostaa morsen näkyville\
+\tulostaa morsen näkyville ja käsittelee ledit\
 static void tulostus(void *arg) {
     while (1) {
         if (programState == SEND_SYMBOL) {
