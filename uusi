@@ -43,7 +43,7 @@ void napin_kasittelija(uint gpio, uint32_t eventMask) {
         return;
     }
 
-    // Reagoidaan vain jos edellinen merkki on jo käsitelty
+    // Odotetaan kunnes edellinen merkki on käsitelty
     if (ohjelman_tila != ODOTTAA) {
         return;
     }
