@@ -59,7 +59,7 @@ char paattele_merkki(kiihtyvyys_t data) {
     return 0;
 }
 
-void sensori_task(void *pvParameters) {
+void sensori(void *pvParameters) {
     kiihtyvyys_t mittaus;
     float gx, gy, gz, temp; 
     init_ICM42670();
@@ -103,7 +103,7 @@ int main(void) {
     init_sw2();
     gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, &napin_kasittelija);
     gpio_set_irq_enabled(BUTTON2, GPIO_IRQ_EDGE_RISE, true);
-    xTaskCreate(sensori_task, "Sensori", muisti, NULL, 2, NULL);
+    xTaskCreate(sensori, "Sensori", muisti, NULL, 2, NULL);
     xTaskCreate(tulostus_task, "Tulostus", muisti, NULL, 2, NULL);
     vTaskStartScheduler();
 
