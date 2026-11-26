@@ -82,7 +82,7 @@ void sensori(void *pvParameters) {
     }
 }
 // Tulostaa ja käyttää lediä
-void tulostus_task(void *pvParameters) {
+void tulostus(void *pvParameters) {
     while (1) {
         if (ohjelman_tila == TULOSTA_MERKKI) {
             printf("%c", lahetettava_merkki);
@@ -104,7 +104,7 @@ int main(void) {
     gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, &napin_kasittelija);
     gpio_set_irq_enabled(BUTTON2, GPIO_IRQ_EDGE_RISE, true);
     xTaskCreate(sensori, "Sensori", muisti, NULL, 2, NULL);
-    xTaskCreate(tulostus_task, "Tulostus", muisti, NULL, 2, NULL);
+    xTaskCreate(tulostus, "Tulostus", muisti, NULL, 2, NULL);
     vTaskStartScheduler();
 
     return 0;
