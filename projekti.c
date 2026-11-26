@@ -30,7 +30,7 @@ volatile state_t programState = WAITING;
 volatile uint8_t buttonFlags = 0;
 volatile char symbol = 0;
 
-\käsitelee nappien painallukset\
+//käsitelee nappien painallukset
 static void nappi(uint gpio, uint32_t eventMask) {
     if (programState != WAITING) {
         return;
@@ -42,12 +42,12 @@ static void nappi(uint gpio, uint32_t eventMask) {
     }
     programState = BUTTON_PRESSED;
 }
-\tunnistaa asennon\
+//tunnistaa asennon
 static void asento(accel_t *data) {
     float gx, gy, gz, t;
     ICM42670_read_sensor_data(&data->ax, &data->ay, &data->az, &gx, &gy, &gz, &t);
 }
-\tunistaa symbolin\
+//tunnistaa symbolin
 static char tunnista_symboli(const accel_t *data) {
     if (fabsf(data->az) > THRESHOLD_G) {
         return '.';
@@ -57,7 +57,7 @@ static char tunnista_symboli(const accel_t *data) {
     }
     return 0;
 }
-\käsittelee sensorin tapahtumat\
+//käsittelee sensorin tapahtumat
 static void sensori(void *arg) {
     accel_t accel;
 
@@ -84,7 +84,7 @@ static void sensori(void *arg) {
         vTaskDelay(pdMS_TO_TICKS(SENSOR_DELAY_MS));
     }
 }
-\tulostaa morsen näkyville ja käsittelee ledit\
+//tulostaa morsen näkyville ja käsittelee ledit\
 static void tulostus(void *arg) {
     while (1) {
         if (programState == SEND_SYMBOL) {
