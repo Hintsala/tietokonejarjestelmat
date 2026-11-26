@@ -1,10 +1,5 @@
-/*
- * Morsekoodin lähetin (TKJHAT + FreeRTOS)
- * Tekijät: [Omat nimet tähän]
- * 
- * SW1 lukee kiihtyvyysanturin asennon ja tulostaa '.' tai '-'
- * SW2 tulostaa välilyönnin merkkien väliin
- */
+//Tiitus Hintsala ja Johan Viljamaa, yhdessä toteutettu koodi joten koodiin ei ole erikseen merkattu tekijää
+ 
 
 #include <stdio.h>
 #include <stdint.h>
@@ -14,11 +9,11 @@
 #include <task.h>
 #include "tkjhat/sdk.h"
 
-#define PINO_KOKO       2048
+#define muisti       2048
 #define SENSORI_VIIVE   50
 #define TULOSTUS_VIIVE  50
 #define RAJA_ARVO       0.8f
-#define DEBOUNCE_MS     200
+#define HÄIRIÖ_VIIVE     200
 
 // Ohjelman tilakoneen tilat
 typedef enum {
@@ -44,7 +39,7 @@ void nappi_keskeytys(uint gpio, uint32_t eventMask) {
     uint32_t nyt = to_ms_since_boot(get_absolute_time());
 
     // Estetään kytkinvärähtelystä johtuvat tuplapainallukset
-    if (nyt - edellinen_painallus < DEBOUNCE_MS) {
+    if (nyt - edellinen_painallus < HÄIRIÖ_VIIVE) {
         return;
     }
 
@@ -133,8 +128,8 @@ int main(void) {
     gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, &nappi_keskeytys);
     gpio_set_irq_enabled(BUTTON2, GPIO_IRQ_EDGE_RISE, true);
 
-    xTaskCreate(sensori_task, "Sensori", PINO_KOKO, NULL, 2, NULL);
-    xTaskCreate(tulostus_task, "Tulostus", PINO_KOKO, NULL, 2, NULL);
+    xTaskCreate(sensori_task, "Sensori", muisti, NULL, 2, NULL);
+    xTaskCreate(tulostus_task, "Tulostus", muisti, NULL, 2, NULL);
 
     vTaskStartScheduler();
 
