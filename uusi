@@ -29,6 +29,7 @@ typedef struct {
 volatile state_t programState = WAITING;
 volatile uint8_t buttonFlags = 0;
 volatile char symbol = 0;
+volatile const char *asento_teksti = NULL;
 
 // Käsittelee nappien painallukset
 static void nappi(uint gpio, uint32_t eventMask) {
@@ -49,20 +50,21 @@ static void asento(accel_t *data) {
     ICM42670_read_sensor_data(&data->ax, &data->ay, &data->az, &gx, &gy, &gz, &t);
 }
 
-// Tunnistaa symbolin asennon perusteella (ylös, alas ja kyljellään)
-static char tunnista_symboli(const accel_t *data) {
-    // Lauta oikein päin (ylös)
+// Tunnistaa symbolin ja asennon tekstin (ylös, alas, sivulla)
+static char tunnista_symboli(const accel_t *data, volatile const char **teksti) {
     if (data->az > THRESHOLD_G) {
+        *teksti = "(ylös)";
         return '.';
     }
-    // Lauta ylösalaisin (alas)
     if (data->az < -THRESHOLD_G) {
+        *teksti = "(alas)";
         return '-';
     }
-    // Lauta kyljellään tai pystyssä (X- tai Y-akseli)
     if (fabsf(data->ax) > THRESHOLD_G || fabsf(data->ay) > THRESHOLD_G) {
+        *teksti = "(sivulla)";
         return '-';
     }
+    *teksti = NULL;
     return 0;
 }
 
@@ -77,9 +79,10 @@ static void sensori(void *arg) {
         if (programState == BUTTON_PRESSED) {
             if (buttonFlags & SW1_FLAG) {
                 asento(&accel);
-                symbol = tunnista_symboli(&accel);
+                symbol = tunnista_symboli(&accel, &asento_teksti);
             } else if (buttonFlags & SW2_FLAG) {
                 symbol = ' ';
+                asento_teksti = NULL;
             }
 
             buttonFlags = 0;
@@ -94,14 +97,19 @@ static void sensori(void *arg) {
     }
 }
 
-// Tulostaa morsen näkyville ja käsittelee ledit
+// Tulostaa morsen sekä asennon näkyville ja käsittelee ledit
 static void tulostus(void *arg) {
     while (1) {
         if (programState == SEND_SYMBOL) {
-            printf("%c", symbol);
+            if (asento_teksti != NULL) {
+                printf("%c%s", symbol, (const char *)asento_teksti);
+            } else {
+                printf("%c", symbol);
+            }
             fflush(stdout);
             toggle_led();
             symbol = 0;
+            asento_teksti = NULL;
             programState = WAITING;
         }
         vTaskDelay(pdMS_TO_TICKS(PRINT_DELAY_MS));
