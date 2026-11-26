@@ -57,23 +57,23 @@ void napin_kasittelija(uint gpio, uint32_t eventMask) {
     }
 }
 
-// Päättelee morsemerkin levyn kallistuksen perusteella
+// Päättelee merkin laiteen asennosta
 char paattele_merkki(kiihtyvyys_t data) {
-    // Levy vaakatasossa (Z-akseli pystyssä) -> piste
+    // vaakasuorassa on .
     if (fabsf(data.z) > RAJA_ARVO) {
         return '.';
     }
-    // Levy kallistettuna sivulle tai pystyyn (X tai Y) -> viiva
+    // sivulla tai pystyssä on -
     if (fabsf(data.x) > RAJA_ARVO || fabsf(data.y) > RAJA_ARVO) {
         return '-';
     }
     return 0;
 }
 
-// Taski kiihtyvyysanturin lukemiseen
+// lukee anturia
 void sensori_task(void *pvParameters) {
     kiihtyvyys_t mittaus;
-    float gx, gy, gz, temp; // Ylimääräiset muuttujat SDK:n funktiota varten
+    float gx, gy, gz, temp; 
 
     init_ICM42670();
     ICM42670_start_with_default_values();
@@ -86,7 +86,6 @@ void sensori_task(void *pvParameters) {
             if (lahetettava_merkki != 0) {
                 ohjelman_tila = TULOSTA_MERKKI;
             } else {
-                // Jos asento oli epäselvä, palataan odottamaan
                 ohjelman_tila = ODOTTAA;
             }
         } 
@@ -99,12 +98,12 @@ void sensori_task(void *pvParameters) {
     }
 }
 
-// Taski merkkien tulostamiseen ja ledin vilkuttamiseen
+// Tulostaa ja käyttää lediä
 void tulostus_task(void *pvParameters) {
     while (1) {
         if (ohjelman_tila == TULOSTA_MERKKI) {
             printf("%c", lahetettava_merkki);
-            fflush(stdout); // Pakotetaan tulostus heti ilman rivinvaihtoa
+            fflush(stdout);
             toggle_led();
 
             lahetettava_merkki = 0;
@@ -120,11 +119,12 @@ int main(void) {
     init_hat_sdk();
     sleep_ms(300);
 
+    //alustetaan ledit
     init_led();
     init_sw1();
     init_sw2();
 
-    // Otetaan keskeytykset käyttöön napeille
+    //valmiit käsittelijät napeille
     gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, &napin_kasittelija);
     gpio_set_irq_enabled(BUTTON2, GPIO_IRQ_EDGE_RISE, true);
 
