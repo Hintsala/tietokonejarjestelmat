@@ -1,3 +1,4 @@
+// Koodi on yhdessä tuotettua, jonka vuoksi ei ole erikseen tekijää merkattu jokaiseen funktioon
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>
