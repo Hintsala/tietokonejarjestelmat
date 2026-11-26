@@ -27,8 +27,10 @@ typedef struct {
     float y;
     float z;
 } kiihtyvyys_t;
+
 volatile tila_t ohjelman_tila = ODOTTAA;
 volatile char lahetettava_merkki = 0;
+
 // Keskeytyskäsittelijä napeille
 void napin_kasittelija(uint gpio, uint32_t eventMask) {
     static uint32_t edellinen_painallus = 0;
