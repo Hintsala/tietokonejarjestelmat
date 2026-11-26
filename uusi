@@ -20,6 +20,13 @@ typedef enum {
     SEND_SYMBOL
 } state_t;
 
+typedef enum {
+    ASENTO_EI = 0,
+    ASENTO_YLOS,
+    ASENTO_ALAS,
+    ASENTO_SIVULLA
+} asento_t;
+
 typedef struct {
     float ax;
     float ay;
@@ -29,7 +36,7 @@ typedef struct {
 volatile state_t programState = WAITING;
 volatile uint8_t buttonFlags = 0;
 volatile char symbol = 0;
-volatile const char *asento_teksti = NULL;
+volatile asento_t asento_tila = ASENTO_EI;
 
 // Käsittelee nappien painallukset
 static void nappi(uint gpio, uint32_t eventMask) {
@@ -50,21 +57,21 @@ static void asento(accel_t *data) {
     ICM42670_read_sensor_data(&data->ax, &data->ay, &data->az, &gx, &gy, &gz, &t);
 }
 
-// Tunnistaa symbolin ja asennon tekstin (ylös, alas, sivulla)
-static char tunnista_symboli(const accel_t *data, volatile const char **teksti) {
+// Tunnistaa symbolin ja asennon (ylös, alas, sivulla)
+static char tunnista_symboli(const accel_t *data, volatile asento_t *tila) {
     if (data->az > THRESHOLD_G) {
-        *teksti = "(ylös)";
+        *tila = ASENTO_YLOS;
         return '.';
     }
     if (data->az < -THRESHOLD_G) {
-        *teksti = "(alas)";
+        *tila = ASENTO_ALAS;
         return '-';
     }
     if (fabsf(data->ax) > THRESHOLD_G || fabsf(data->ay) > THRESHOLD_G) {
-        *teksti = "(sivulla)";
+        *tila = ASENTO_SIVULLA;
         return '-';
     }
-    *teksti = NULL;
+    *tila = ASENTO_EI;
     return 0;
 }
 
@@ -79,10 +86,10 @@ static void sensori(void *arg) {
         if (programState == BUTTON_PRESSED) {
             if (buttonFlags & SW1_FLAG) {
                 asento(&accel);
-                symbol = tunnista_symboli(&accel, &asento_teksti);
+                symbol = tunnista_symboli(&accel, &asento_tila);
             } else if (buttonFlags & SW2_FLAG) {
                 symbol = ' ';
-                asento_teksti = NULL;
+                asento_tila = ASENTO_EI;
             }
 
             buttonFlags = 0;
@@ -101,15 +108,21 @@ static void sensori(void *arg) {
 static void tulostus(void *arg) {
     while (1) {
         if (programState == SEND_SYMBOL) {
-            if (asento_teksti != NULL) {
-                printf("%c%s", symbol, (const char *)asento_teksti);
-            } else {
-                printf("%c", symbol);
+            const char *teksti = "";
+            if (asento_tila == ASENTO_YLOS) {
+                teksti = "(ylös)";
+            } else if (asento_tila == ASENTO_ALAS) {
+                teksti = "(alas)";
+            } else if (asento_tila == ASENTO_SIVULLA) {
+                teksti = "(sivulla)";
             }
+
+            printf("%c%s", symbol, teksti);
             fflush(stdout);
             toggle_led();
+
             symbol = 0;
-            asento_teksti = NULL;
+            asento_tila = ASENTO_EI;
             programState = WAITING;
         }
         vTaskDelay(pdMS_TO_TICKS(PRINT_DELAY_MS));
